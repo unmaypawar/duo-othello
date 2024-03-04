@@ -64,15 +64,99 @@ def update_board(board, board_length, player, move):
     return board 
     
 
+def evaluate_disc_diff(board, board_length, player, opponent):
+    player_disc = 0
+    opponent_disc = 0
+
+    for row in board:
+        for cell in row:
+            if cell == player:
+                player_disc += 1
+            elif cell == opponent:
+                opponent_disc += 1
+
+    disc_diff = 100 * (player_disc - opponent_disc) / (player_disc + opponent_disc)
+
+    return disc_diff
+
+
+def evaluate_mobility(board, board_length, player, opponent):
+    player_legal_moves = get_moves(board, board_length, player, opponent)
+    opponent_legal_moves = get_moves(board, board_length, opponent, player)
+
+    mobility = 100 * (len(player_legal_moves) - len(opponent_legal_moves)) / (len(player_legal_moves) + len(opponent_legal_moves) + 1)
+
+    return mobility
+
+
+def evaluate_corners(board, board_length, player, opponent):
+    player_corner = 0
+    opponent_corner = 0
+
+    coordinate = [0, board_length - 1]
+
+    for i in coordinate:
+        for j in coordinate:
+            if board[i][j] == player:
+                player_corner += 1
+            elif board[i][j] == opponent:
+                opponent_corner += 1
+
+    corners = 100 * (player_corner - opponent_corner) / (player_corner + opponent_corner + 1)
+
+    return corners
+
+
+def evaluate_board(board, board_length, player, opponent):
+    score = 0
+    
+    disc_diff = evaluate_disc_diff(board, board_length, player, opponent)
+    mobility = evaluate_mobility(board, board_length, player, opponent)
+    corners = evaluate_corners(board, board_length, player, opponent)
+
+    score = disc_diff + (2 * mobility) + (1000 * corners)
+
+    return score
+
+
+def killer_move(board, board_length, player, opponent, player_time, opponent_time):
+    legal_moves = get_moves(board, board_length, player, opponent)
+    
+    if len(legal_moves) == 1:
+        return legal_moves[0]
+
+    corners = [(0, 0), (0, board_length - 1), (board_length - 1, 0), (board_length - 1, board_length - 1)]
+    for corner in corners:
+        if corner in legal_moves:
+            return corner
+
+    for move in legal_moves:
+        new_board = [row[:] for row in board]
+        new_board = update_board(new_board, board_length, player, move)
+        opponent_legal_moves = []
+        opponent_legal_moves = get_moves(new_board, board_length, opponent, player)
+        if not opponent_legal_moves:
+            return move
+
+    return None
+
+
 def min_node(board, board_length, depth, alpha, beta, player, opponent):
     min_score = float('inf')
     best_move = None
     legal_moves = get_moves(board, board_length, opponent, player)
 
     if depth == 0 or not legal_moves:
-        return evaluate_board(board, player, opponent), best_move
+        return evaluate_board(board, board_length, player, opponent), best_move
 
+    ordered_legal_moves = {}
     for move in legal_moves:
+        new_board = [row[:] for row in board]
+        new_board = update_board(new_board, board_length, player, move)
+        ordered_legal_moves[move] = evaluate_board(new_board, board_length, player, opponent)
+    ordered_legal_moves = dict(sorted(ordered_legal_moves.items(), key=lambda item: item[1]))
+
+    for move in ordered_legal_moves:
         new_board = [row[:] for row in board]
         new_board = update_board(new_board, board_length, opponent, move)
         score, local_move = max_node(new_board, board_length, depth - 1, alpha, beta, player, opponent)
@@ -94,9 +178,16 @@ def max_node(board, board_length, depth, alpha, beta, player, opponent):
     legal_moves = get_moves(board, board_length, player, opponent)
 
     if depth == 0 or not legal_moves:
-        return evaluate_board(board, player, opponent), best_move
+        return evaluate_board(board, board_length, player, opponent), best_move
 
+    ordered_legal_moves = {}
     for move in legal_moves:
+        new_board = [row[:] for row in board]
+        new_board = update_board(new_board, board_length, player, move)
+        ordered_legal_moves[move] = evaluate_board(new_board, board_length, player, opponent)
+    ordered_legal_moves = dict(sorted(ordered_legal_moves.items(), key=lambda item: item[1], reverse=True))
+
+    for move in ordered_legal_moves:
         new_board = [row[:] for row in board]
         new_board = update_board(new_board, board_length, player, move)
         score, local_move = min_node(new_board, board_length, depth - 1, alpha, beta, player, opponent)
@@ -110,18 +201,6 @@ def max_node(board, board_length, depth, alpha, beta, player, opponent):
             break
 
     return max_score, best_move
-
-
-def evaluate_board(board, player, opponent):
-    score = 0
-    for row in board:
-        for cell in row:
-            if cell == player:
-                score += 1
-            elif cell == opponent:
-                score -= 1
-
-    return score
 
 
 def make_move(best_move):
@@ -150,8 +229,12 @@ def game_debug(board, board_length, player, opponent, best_move, player_time, op
 def main():
     board_length = 12
     depth = 4
+
     player, opponent, player_time, opponent_time, board = read_game(board_length)
-    best_score, best_move = max_node(board, board_length, depth, float('-inf'), float('inf'), player, opponent)
+    best_move = killer_move(board, board_length, player, opponent, player_time, opponent_time)
+    if best_move == None:
+        best_score, best_move = max_node(board, board_length, depth, float('-inf'), float('inf'), player, opponent)
+
     game_debug(board, board_length, player, opponent, best_move, player_time, opponent_time)
     make_move(best_move)
     
