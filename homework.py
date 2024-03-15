@@ -15,7 +15,7 @@ def read_game(board_length):
             row = [col for col in row]
             board.append(row)
 
-    return player, opponent, player_time, opponent_time, board
+    return player, opponent, float(player_time), float(opponent_time), board
 
 
 def get_moves(board, board_length, player, opponent):
@@ -64,7 +64,7 @@ def update_board(board, board_length, player, move):
     return board 
     
 
-def evaluate_disc_diff(board, board_length, player, opponent):
+def evaluate_pieces(board, board_length, player, opponent):
     player_disc = 0
     opponent_disc = 0
 
@@ -75,9 +75,12 @@ def evaluate_disc_diff(board, board_length, player, opponent):
             elif cell == opponent:
                 opponent_disc += 1
 
-    disc_diff = 100 * (player_disc - opponent_disc) / (player_disc + opponent_disc)
+    if player == 'O':
+        pieces = 100 * (player_disc - (opponent_disc + 1)) / (player_disc + (opponent_disc + 1) + 1)
+    else:
+        pieces = 100 * (player_disc - opponent_disc) / (player_disc + opponent_disc + 1)
 
-    return disc_diff
+    return pieces
 
 
 def evaluate_mobility(board, board_length, player, opponent):
@@ -107,14 +110,126 @@ def evaluate_corners(board, board_length, player, opponent):
     return corners
 
 
+def evaluate_stability(board, board_length, player, opponent):
+    player_stable_disc = set()
+    opponent_stable_disc = set()
+
+    coordinate = [0, board_length - 1]
+    for i in coordinate:
+        for j in coordinate:
+            if board[i][j] == player:
+                r = i
+                c = j
+                if j == 0:
+                    prev_c = board_length - 1
+                else:
+                    prev_c = 0
+
+                while(0 <= r < board_length and board[r][c] == player):
+                    if j == 0:
+                        while(0 <= c < board_length and c <= prev_c and board[r][c] == player):
+                            player_stable_disc.add((r, c))
+                            c += 1
+                        prev_c = c - 1
+
+                    else:
+                        while(0 <= c < board_length and c >= prev_c and board[r][c] == player):
+                            player_stable_disc.add((r, c))
+                            c -= 1
+                        prev_c = c + 1
+
+                    if i == 0:
+                        r += 1
+                    else:  
+                        r -= 1
+
+                    c = j
+
+    for i in coordinate:
+        for j in coordinate:
+            if board[i][j] == opponent:
+                r = i
+                c = j
+                if j == 0:
+                    prev_c = board_length - 1
+                else:
+                    prev_c = 0
+
+                while(0 <= r < board_length and board[r][c] == opponent):
+                    if j == 0:
+                        while(0 <= c < board_length and c <= prev_c and board[r][c] == opponent):
+                            opponent_stable_disc.add((r, c))
+                            c += 1
+                        prev_c = c - 1
+
+                    else:
+                        while(0 <= c < board_length and c >= prev_c and board[r][c] == opponent):
+                            opponent_stable_disc.add((r, c))
+                            c -= 1
+                        prev_c = c + 1
+
+                    if i == 0:
+                        r += 1
+                    else:  
+                        r -= 1
+
+                    c = j
+
+    stability = 100 * (len(player_stable_disc) - len(opponent_stable_disc)) / (len(player_stable_disc) + len(opponent_stable_disc) + 1)
+
+    return stability
+
+
+def evaluate_frontier(board, board_length, player, opponent):
+    player_frontier = 0
+    opponent_frontier = 0
+
+    directions = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
+    for row in range(board_length):
+        for col in range(board_length):
+            if board[row][col] != '.':
+                for dr, dc in directions:
+                    r = row + dr
+                    c = col + dc
+                    if 0 <= r < board_length and 0 <= c < board_length:
+                        if board[r][c] == '.':
+                            if board[row][col] == player:
+                                player_frontier += 1
+                                break
+                            else:
+                                opponent_frontier += 1
+                                break
+
+    frontier = 100 * (opponent_frontier - player_frontier) / (player_frontier + opponent_frontier + 1)
+
+    return frontier
+
+
+def evaluate_weights(board, board_length):
+    pieces = 0
+    for row in board:
+        for cell in row:
+            if cell != '.':
+                pieces += 1
+
+    return pieces
+
+
 def evaluate_board(board, board_length, player, opponent):
     score = 0
-    
-    disc_diff = evaluate_disc_diff(board, board_length, player, opponent)
-    mobility = evaluate_mobility(board, board_length, player, opponent)
-    corners = evaluate_corners(board, board_length, player, opponent)
+    weights = evaluate_weights(board, board_length)
 
-    score = disc_diff + (2 * mobility) + (1000 * corners)
+    mobility = evaluate_mobility(board, board_length, player, opponent)
+    frontier = evaluate_frontier(board, board_length, player, opponent)
+    pieces = evaluate_pieces(board, board_length, player, opponent)
+    stability = evaluate_stability(board, board_length, player, opponent)
+    corners = evaluate_corners(board, board_length, player, opponent)
+    
+    if weights < 17 and player == 'O':
+        score = (3 * mobility) + (3 * pieces) + (500 * stability) + (1000 * corners)
+
+    else:
+        score = (3 * mobility) + (2 * frontier) + (pieces) + (500 * stability) + (1000 * corners)
 
     return score
 
@@ -122,13 +237,17 @@ def evaluate_board(board, board_length, player, opponent):
 def killer_move(board, board_length, player, opponent, player_time, opponent_time):
     legal_moves = get_moves(board, board_length, player, opponent)
     
+    if player_time < 2:
+        return legal_moves[0]
+
     if len(legal_moves) == 1:
         return legal_moves[0]
 
-    corners = [(0, 0), (0, board_length - 1), (board_length - 1, 0), (board_length - 1, board_length - 1)]
-    for corner in corners:
-        if corner in legal_moves:
-            return corner
+    coordinate = [0, board_length - 1]
+    for i in coordinate:
+        for j in coordinate:
+            if (i, j) in legal_moves:
+                return (i, j)
 
     for move in legal_moves:
         new_board = [row[:] for row in board]
@@ -211,21 +330,6 @@ def make_move(best_move):
         out_file.write(column_name[best_move[1]]+str(row_name))
 
 
-def game_debug(board, board_length, player, opponent, best_move, player_time, opponent_time):
-    print(best_move)
-    if best_move != None:
-        board = update_board(board, board_length, player, best_move)
-    time = player_time + ' ' + opponent_time
-    with open('input.txt', 'w') as in_file:
-        in_file.writelines(opponent)
-        in_file.writelines('\n')
-        in_file.writelines(time)
-        in_file.writelines('\n')
-        for i in range(board_length):
-            in_file.writelines(board[i])
-            in_file.writelines('\n')
-
-
 def main():
     board_length = 12
     depth = 4
@@ -234,8 +338,6 @@ def main():
     best_move = killer_move(board, board_length, player, opponent, player_time, opponent_time)
     if best_move == None:
         best_score, best_move = max_node(board, board_length, depth, float('-inf'), float('inf'), player, opponent)
-
-    game_debug(board, board_length, player, opponent, best_move, player_time, opponent_time)
     make_move(best_move)
     
  
