@@ -5,16 +5,6 @@ from engine import get_moves, update_board, killer_move
 from minimax import max_node
 
 
-depth = 4
-board_length = 12
-
-
-
-root = Tk()
-screen = Canvas(root, width = 600, height = 650, bg = 'lightblue')
-screen.pack()
-
-
 class Board:
 	def __init__(self):
 		self.player = 0
@@ -72,7 +62,28 @@ class Board:
 					self.pass_check()
 
 		else:
-			screen.create_text(300 ,350, anchor = 'c', font = ('San Francisco', 40), fill = 'red', text = 'GAME OVER!')
+			screen.delete('score')
+			player_score_int = 0
+			ai_score_int = 0
+			for i in range(board_length):
+				for j in range(board_length):
+					if self.array[i][j] == 'W':
+						player_score_int += 1
+					elif self.array[i][j] == 'B':
+						ai_score_int += 1
+
+			player_score = 'Player ' + str(player_score_int)
+			ai_score = 'AI ' + str(ai_score_int)
+
+			screen.create_text(100, 25, anchor = 'w', tags = 'score', font = ('San Francisco', 40), fill = 'white', text = player_score)
+			screen.create_text(400, 25, anchor = 'w', tags = 'score', font = ('San Francisco', 40), fill = 'black', text = ai_score)
+
+			if player_score_int > ai_score_int:
+				screen.create_text(300 ,350, anchor = 'c', font = ('San Francisco', 40), fill = 'red', text = 'Winner: Player')
+			elif player_score_int < ai_score_int:
+				screen.create_text(300 ,350, anchor = 'c', font = ('San Francisco', 40), fill = 'red', text = 'Winner: AI')
+			else:
+				screen.create_text(300 ,350, anchor = 'c', font = ('San Francisco', 40), fill = 'red', text = 'Game Tie')
 
 
 	def make_move(self, row, col):
@@ -88,18 +99,18 @@ class Board:
 	def draw_scoreboard(self):
 		screen.delete('score')
 
-		player_score = 0
-		ai_score = 0
+		player_score_int = 0
+		ai_score_int = 0
 
 		for i in range(board_length):
 			for j in range(board_length):
 				if self.array[i][j] == 'W':
-					player_score += 1
+					player_score_int += 1
 				elif self.array[i][j] == 'B':
-					ai_score += 1
+					ai_score_int += 1
 
-		player_score = 'Player ' + str(player_score)
-		ai_score = 'AI ' + str(ai_score)
+		player_score = 'Player ' + str(player_score_int)
+		ai_score = 'AI ' + str(ai_score_int)
 
 		screen.create_text(100, 25, anchor = 'w', tags = 'score', font = ('San Francisco', 40), fill = 'white', text = player_score)
 		screen.create_text(400, 25, anchor = 'w', tags = 'score', font = ('San Francisco', 40), fill = 'black', text = ai_score)
@@ -126,7 +137,7 @@ class Board:
 			self.passed = False
 
 
-def clickHandle(event):
+def handle_click(event):
 	if board.player == 0:
 		col = event.x // 50
 		row = event.y // 50 - 1
@@ -135,11 +146,19 @@ def clickHandle(event):
 			board.make_move(row, col)
 
 
+depth = 4
+board_length = 12
+
+
+root = Tk()
+screen = Canvas(root, width = 600, height = 650, bg = 'lightblue')
+screen.pack()
+
+
 board = Board()
 board.update()
 
-screen.bind("<Button-1>", clickHandle)
 
-
+screen.bind("<Button-1>", handle_click)
 root.title('Duo-Othello')
 root.mainloop()

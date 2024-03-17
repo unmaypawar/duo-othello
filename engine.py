@@ -1,45 +1,3 @@
-def start_game(board_length):
-    board = []
-    for i in range(board_length):
-        row = []
-        for j in range(board_length):
-            row.append('.')
-        board.append(row)
-
-    board[2][3] = 'B'
-    board[3][2] = 'B'
-    board[8][9] = 'B'
-    board[9][8] = 'B'
-    board[2][2] = 'W'
-    board[3][3] = 'W'
-    board[8][8] = 'W'
-    board[9][9] = 'W'
-
-    return board
-
-
-def is_game_over(board, board_length):
-    flag = 0
-    for i in range(board_length):
-        for j in range(board_length):
-            if board[i][j] == '.':
-                flag = 1
-                break
-
-    if not flag:
-        return 1
-
-    ai_moves = get_moves(board, board_length, 'W', 'B')
-    if ai_moves:
-        return 0
-
-    player_moves = get_moves(board, board_length, 'B', 'W')
-    if player_moves:
-        return 0
-
-    return 1
-
-
 def get_moves(board, board_length, player, opponent):
     moves = []
     directions = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
@@ -107,15 +65,3 @@ def update_board(board, board_length, player, move):
         board[r][c] = player
 
     return board
-
-
-def make_move(best_move, player_moves, board, board_length, root):
-    col = best_move.x // 60
-    row = best_move.y // 60
-    print('here')
-    if (row, col) in player_moves:
-        board = update_board(board, board_length, 'B', (row, col))
-        root.destroy()
-        return board
-
-    return 0
